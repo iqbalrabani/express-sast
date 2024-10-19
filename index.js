@@ -3,12 +3,12 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const port = 3000;
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Koneksi ke PostgreSQL
@@ -30,15 +30,15 @@ db.connect(err => {
 });
 
 // Rute: Fetch User
-app.get('/users', async (req, res) => {
+app.get('/users', (req, res) => {
     const userId = req.query.id;
-    try {
-        const result = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+    db.query(`SELECT * FROM users WHERE id = '${userId}'`, (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ message: 'Error fetching user.' });
+        }
         res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Error fetching user.' });
-    }
+    });
 });
 
 // Update user
@@ -61,21 +61,21 @@ app.put('/users/:id', async (req, res) => {
 });
 
 // Rute: Submit Comment
-app.post('/comment', async (req, res) => {
+app.post('/comment', (req, res) => {
     const { user_id, comment } = req.body;
-    try {
-        await db.query('INSERT INTO comments (user_id, comment) VALUES ($1, $2)', [user_id, comment]);
-        res.send('Comment submitted!');
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Error submitting comment.' });
-    }
+    db.query(`INSERT INTO comments (user_id, comment) VALUES (${user_id}, '${comment}')`, (err, result) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ message: 'Error submitting comment.' });
+        }
+        res.send(`Your comment: ${comment}`);
+    });
 });
 
 // Rute: Encrypt Data
 app.post('/encrypt', (req, res) => {
     const data = req.body.data;
-    const cipher = crypto.createCipher('aes-256-cbc', 'a_secret_key');
+    const cipher = crypto.createCipher('aes-256-cbc', 'password');
     let encrypted = cipher.update(data, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     res.send(`Encrypted Data: ${encrypted}`);
@@ -83,14 +83,13 @@ app.post('/encrypt', (req, res) => {
 
 // Rute: Fetch File
 app.get('/file', (req, res) => {
-    const fileName = req.query.filename;
-    const filePath = path.join(__dirname, 'uploads', fileName);
-    res.sendFile(filePath, err => {
-        if (err) {
-            res.status(404).send('File not found');
-        }
+    const filename = req.query.filename;
+    const filePath = `./uploads/${filename}`;
+    fs.readFile(filePath, (err, data) => {
+      if (err) return res.status(404).send('File not found');
+      res.send(data);
     });
-});
+  });
 
 // Render Front-End
 app.get('/', (req, res) => {
