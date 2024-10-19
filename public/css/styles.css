@@ -1,0 +1,40 @@
+body {
+    background-color: #f8f9fa;
+}
+
+h1 {
+    color: #007bff;
+}
+
+.card {
+    margin-bottom: 20px;
+}
+
+button {
+    width: 100%;
+}
+
+#user-display, #comment-result, #encrypt-result, #file-result {
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    word-wrap: break-word;
+}
+
+.user-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-card h5 {
+    margin: 0;
+}
+
+.user-card p {
+    margin: 5px 0;
+}
