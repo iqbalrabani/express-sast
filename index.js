@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const mysql = require('mysql');
+const { Pool } = require('pg');
 const crypto = require('crypto');
 const path = require('path');
 
@@ -11,57 +11,65 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Koneksi ke MySQL
-const db = mysql.createConnection({
+// Koneksi ke PostgreSQL
+const db = new Pool({
     host: 'localhost',
-    user: 'root',
-    password: 'Mysql89#', 
-    database: 'sastdb'
+    user: 'postgres',
+    password: 'Postgres89#', 
+    database: 'sastdb',
+    port: 5433
 });
 
+// Uji koneksi ke database
 db.connect(err => {
     if (err) {
-        throw err;
+        console.error('Failed to connect to PostgreSQL:', err);
+        process.exit(1);
     }
-    console.log('Connected to MySQL');
+    console.log('Connected to PostgreSQL');
 });
 
 // Rute: Fetch User
-app.get('/users', (req, res) => {
+app.get('/users', async (req, res) => {
     const userId = req.query.id;
-    const query = 'SELECT * FROM users WHERE id = ?';
-    db.query(query, [userId], (err, result) => {
-        if (err) throw err;
-        res.json(result);
-    });
+    try {
+        const result = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching user.' });
+    }
 });
 
 // Update user
-app.put('/users/:id', (req, res) => {
+app.put('/users/:id', async (req, res) => {
     const userId = parseInt(req.params.id);
-    const { name, email } = req.body; // Pastikan body memiliki field name dan email
-    const query = 'UPDATE users SET name = ?, email = ? WHERE id = ?';
-
-    db.query(query, [name, email, userId], (err, result) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).json({ message: 'Failed to update user.' });
-        }
-        if (result.affectedRows === 0) {
+    const { name, email } = req.body;
+    try {
+        const result = await db.query(
+            'UPDATE users SET name = $1, email = $2 WHERE id = $3',
+            [name, email, userId]
+        );
+        if (result.rowCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         res.json({ message: 'User updated successfully!' });
-    });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to update user.' });
+    }
 });
 
 // Rute: Submit Comment
-app.post('/comment', (req, res) => {
-    const comment = req.body.comment;
-    const query = 'INSERT INTO comments (comment) VALUES (?)';
-    db.query(query, [comment], (err) => {
-        if (err) throw err;
+app.post('/comment', async (req, res) => {
+    const { user_id, comment } = req.body;
+    try {
+        await db.query('INSERT INTO comments (user_id, comment) VALUES ($1, $2)', [user_id, comment]);
         res.send('Comment submitted!');
-    });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error submitting comment.' });
+    }
 });
 
 // Rute: Encrypt Data
